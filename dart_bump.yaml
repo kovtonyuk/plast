@@ -1,0 +1,28 @@
+# dart_bump configuration
+# https://pub.dev/packages/dart_bump
+
+files:
+  - path: pubspec.yaml
+    field: version
+
+changelog:
+  github_release: false
+  header: |
+    # Changelog
+  template: |
+    ## {{version}} - {{date}}
+
+    {{#if commits}}
+    ### Changes:
+    {{#each commits}}
+    - {{this.message}}
+    {{/each}}
+    {{else}}
+    No changes recorded.
+    {{/if}}
+
+git:
+  commit: true
+  push: false
+  tag: true
+  tag_prefix: "v"
