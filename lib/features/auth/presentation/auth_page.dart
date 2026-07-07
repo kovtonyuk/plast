@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/constants/app_constants.dart';
+import '../../../core/utils/debouncer.dart';
 import '../../../l10n/app_localizations.dart';
 
 class AuthPage extends StatefulWidget {
@@ -16,6 +17,10 @@ class _AuthPageState extends State<AuthPage> {
   final _passwordController = TextEditingController();
   final _firstNameController = TextEditingController();
   final _lastNameController = TextEditingController();
+  // Debouncer: prevents double-submits from a single user and absorbs a few
+  // rapid taps that would otherwise count as separate hits on the auth
+  // endpoint (Supabase rate limit is 30 signups/hour per IP).
+  final _submitDebouncer = Debouncer(duration: const Duration(seconds: 2));
   bool _isLogin = true;
   bool _isLoading = false;
   bool _obscurePassword = true;
@@ -47,6 +52,13 @@ class _AuthPageState extends State<AuthPage> {
   }
 
   String _getErrorMessage(String error, AppLocalizations l10n) {
+    // Supabase returns 429 (rate limited) with messages like
+    // "Too Many Requests" or "rate limit exceeded" or HTTP code 429.
+    if (error.contains('429') ||
+        error.contains('Too Many Requests') ||
+        error.contains('rate limit')) {
+      return l10n.errorTooManyRequests;
+    }
     if (error.contains('Invalid login credentials')) {
       return l10n.errorInvalidCredentials;
     }
@@ -65,10 +77,16 @@ class _AuthPageState extends State<AuthPage> {
     if (error.contains('Unable to validate email address')) {
       return l10n.errorEmailInvalid;
     }
-    return error;
+    return l10n.errorGeneric;
   }
 
   Future<void> _submit() async {
+    // Debounce: drop the request if a previous one is still in flight.
+    // This is the main defense against 429 from Supabase auth endpoint.
+    await _submitDebouncer.run(_performSubmit);
+  }
+
+  Future<void> _performSubmit() async {
     final l10n = AppLocalizations.of(context)!;
     _clearErrors();
 

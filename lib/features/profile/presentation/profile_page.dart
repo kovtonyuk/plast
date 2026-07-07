@@ -21,11 +21,13 @@ class _ProfilePageState extends State<ProfilePage> {
   final _firstNameFocusNode = FocusNode();
   final _lastNameFocusNode = FocusNode();
   final _phoneFocusNode = FocusNode();
+  final _emailFocusNode = FocusNode();
   final _imagePicker = ImagePicker();
   final _firstNameController = TextEditingController();
   final _lastNameController = TextEditingController();
   final _nicknameController = TextEditingController();
   final _phoneController = TextEditingController();
+  final _emailController = TextEditingController();
   final _locationController = TextEditingController();
   final _heardAboutPlastController = TextEditingController();
   final _whoNamedController = TextEditingController();
@@ -46,6 +48,7 @@ class _ProfilePageState extends State<ProfilePage> {
   bool _showFirstNameError = false;
   bool _showLastNameError = false;
   bool _showPhoneError = false;
+  bool _showEmailError = false;
   bool _showDateOfBirthError = false;
   ProfileModel? _profile;
 
@@ -58,6 +61,14 @@ class _ProfilePageState extends State<ProfilePage> {
     _firstNameController.addListener(_clearFirstNameError);
     _lastNameController.addListener(_clearLastNameError);
     _phoneController.addListener(_clearPhoneError);
+    _emailController.addListener(_clearEmailError);
+
+    // Pre-fill email from Supabase Auth so the form has the right value
+    // even when the user has not created a `profiles` row yet.
+    final authEmail = Supabase.instance.client.auth.currentUser?.email;
+    if (authEmail != null) {
+      _emailController.text = authEmail;
+    }
   }
 
   void _clearFirstNameError() {
@@ -75,6 +86,12 @@ class _ProfilePageState extends State<ProfilePage> {
   void _clearPhoneError() {
     if (_showPhoneError && _phoneController.text.trim().isNotEmpty) {
       setState(() => _showPhoneError = false);
+    }
+  }
+
+  void _clearEmailError() {
+    if (_showEmailError && _emailController.text.trim().isNotEmpty) {
+      setState(() => _showEmailError = false);
     }
   }
 
@@ -123,10 +140,12 @@ class _ProfilePageState extends State<ProfilePage> {
     _firstNameFocusNode.dispose();
     _lastNameFocusNode.dispose();
     _phoneFocusNode.dispose();
+    _emailFocusNode.dispose();
     _firstNameController.dispose();
     _lastNameController.dispose();
     _nicknameController.dispose();
     _phoneController.dispose();
+    _emailController.dispose();
     _locationController.dispose();
     _heardAboutPlastController.dispose();
     _whoNamedController.dispose();
@@ -157,6 +176,12 @@ class _ProfilePageState extends State<ProfilePage> {
           _nicknameController.text = _profile!.nickname ?? '';
           _phoneController.text = AppConstants.stripPhonePrefix(_profile!.phone);
           _locationController.text = _profile!.location;
+          // Prefer the profile row's email, but fall back to the value in
+          // Supabase Auth — that one is authoritative and stays up to date
+          // even when the user has just changed it from the auth flow.
+          _emailController.text = (_profile!.email != null && _profile!.email!.isNotEmpty)
+              ? _profile!.email!
+              : (Supabase.instance.client.auth.currentUser?.email ?? '');
           _dateOfBirth = _profile!.dateOfBirth;
           _dateOfNaming = _profile!.dateOfNaming;
           _dateJoinedPlast = _profile!.dateJoinedPlast;
@@ -194,13 +219,25 @@ class _ProfilePageState extends State<ProfilePage> {
     final bool firstNameEmpty = _firstNameController.text.trim().isEmpty;
     final bool lastNameEmpty = _lastNameController.text.trim().isEmpty;
     final bool phoneEmpty = _phoneController.text.trim().isEmpty;
+    final bool emailEmpty = _emailController.text.trim().isEmpty;
     final bool dobEmpty = _dateOfBirth == null;
 
     // Validate phone format (digits only, 9 digits)
     final String phoneValue = _phoneController.text.trim();
     final bool phoneInvalid = !phoneEmpty && !RegExp(r'^[0-9]{9}$').hasMatch(phoneValue);
 
-    final bool hasError = firstNameEmpty || lastNameEmpty || phoneEmpty || dobEmpty || phoneInvalid;
+    // Validate email format
+    final String emailValue = _emailController.text.trim();
+    final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
+    final bool emailInvalid = !emailEmpty && !emailRegex.hasMatch(emailValue);
+
+    final bool hasError = firstNameEmpty ||
+        lastNameEmpty ||
+        phoneEmpty ||
+        emailEmpty ||
+        emailInvalid ||
+        dobEmpty ||
+        phoneInvalid;
 
     // Calculate scroll position
     double firstErrorOffset = 0;
@@ -210,8 +247,10 @@ class _ProfilePageState extends State<ProfilePage> {
       firstErrorOffset = 330;
     } else if (phoneEmpty || phoneInvalid) {
       firstErrorOffset = 500;
+    } else if (emailEmpty || emailInvalid) {
+      firstErrorOffset = 580;
     } else if (dobEmpty) {
-      firstErrorOffset = 600;
+      firstErrorOffset = 700;
     }
 
     if (hasError) {
@@ -219,6 +258,7 @@ class _ProfilePageState extends State<ProfilePage> {
         _showLastNameError = lastNameEmpty;
         _showFirstNameError = firstNameEmpty;
         _showPhoneError = phoneEmpty || phoneInvalid;
+        _showEmailError = emailEmpty || emailInvalid;
         _showDateOfBirthError = dobEmpty;
       });
 
@@ -236,11 +276,17 @@ class _ProfilePageState extends State<ProfilePage> {
         _firstNameFocusNode.requestFocus();
       } else if (phoneEmpty || phoneInvalid) {
         _phoneFocusNode.requestFocus();
+      } else if (emailEmpty || emailInvalid) {
+        _emailFocusNode.requestFocus();
       }
 
       String errorMsg = l10n.fillRequiredFields;
       if (phoneInvalid) {
         errorMsg = l10n.phoneInvalid;
+      } else if (emailEmpty) {
+        errorMsg = l10n.emailCannotBeEmpty;
+      } else if (emailInvalid) {
+        errorMsg = l10n.errorEmailInvalid;
       }
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -260,7 +306,15 @@ class _ProfilePageState extends State<ProfilePage> {
 
     try {
       final userId = Supabase.instance.client.auth.currentUser!.id;
-      final data = {
+      final newEmail = emailValue;
+      final currentAuthEmail = Supabase.instance.client.auth.currentUser?.email;
+      final emailChanged = currentAuthEmail != null &&
+          newEmail.toLowerCase() != currentAuthEmail.toLowerCase();
+
+      // Email updates are routed through Supabase Auth so the user receives
+      // a confirmation email. The `profiles.email` column is then mirrored
+      // by the listener in main.dart — we don't write it here on update.
+      final data = <String, dynamic>{
         'first_name': _firstNameController.text.trim(),
         'last_name': _lastNameController.text.trim(),
         'nickname': _nicknameController.text.trim().isEmpty ? null : _nicknameController.text.trim(),
@@ -281,17 +335,47 @@ class _ProfilePageState extends State<ProfilePage> {
       };
 
       if (_profileExistsInDb) {
+        // Don't overwrite the mirrored email/email_verified here — the
+        // listener keeps them in sync with Supabase Auth.
         await Supabase.instance.client
             .from('profiles')
             .update(data)
             .eq('id', userId);
       } else {
         data['id'] = userId;
+        data['email'] = newEmail;
+        data['email_verified'] = 0;
         data['created_at'] = DateTime.now().toIso8601String();
         await Supabase.instance.client.from('profiles').insert(data);
         setState(() {
           _profileExistsInDb = true;
         });
+      }
+
+      // After the profile is saved, route an email change through Auth so
+      // Supabase sends the confirmation link.
+      if (emailChanged && _profileExistsInDb) {
+        await Supabase.instance.client.auth.updateUser(
+          UserAttributes(email: newEmail),
+        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(l10n.emailChangeConfirmationSent(newEmail)),
+              backgroundColor: Colors.orange,
+              duration: const Duration(seconds: 6),
+            ),
+          );
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(l10n.profileSaved),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
       }
 
       await _loadProfile();
@@ -300,12 +384,6 @@ class _ProfilePageState extends State<ProfilePage> {
           _isEditing = false;
           _isLoading = false;
         });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(l10n.profileSaved),
-            backgroundColor: Colors.green,
-          ),
-        );
       }
     } catch (e) {
       // Error saving profile
@@ -437,30 +515,35 @@ class _ProfilePageState extends State<ProfilePage> {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  if (_profileExistsInDb && !_isEditing)
+                  if (_emailController.text.isNotEmpty)
                     Center(
                       child: Column(
                         children: [
-                          if (_profile?.email != null) ...[
-                            Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  _profile!.email!,
-                                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                                        color: Theme.of(context).colorScheme.primary,
-                                      ),
-                                ),
-                                const SizedBox(width: 8),
-                                Icon(
-                                  _profile!.emailVerified == 1 ? Icons.verified : Icons.warning,
-                                  size: 18,
-                                  color: _profile!.emailVerified == 1 ? Colors.green : Colors.orange,
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 4),
-                          ],
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                _emailController.text,
+                                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                                      color: Theme.of(context).colorScheme.primary,
+                                    ),
+                              ),
+                              const SizedBox(width: 8),
+                              Icon(
+                                (_profile?.emailVerified == 1 ||
+                                        Supabase.instance.client.auth.currentUser?.emailConfirmedAt !=
+                                            null)
+                                    ? Icons.verified
+                                    : Icons.warning,
+                                size: 18,
+                                color: (_profile?.emailVerified == 1 ||
+                                        Supabase.instance.client.auth.currentUser?.emailConfirmedAt !=
+                                            null)
+                                    ? Colors.green
+                                    : Colors.orange,
+                              ),
+                            ],
+                          ),
                           Text(
                             '@${_nicknameController.text.isNotEmpty ? _nicknameController.text : l10n.noNickname}',
                             style: Theme.of(context).textTheme.bodyLarge?.copyWith(
@@ -562,6 +645,46 @@ class _ProfilePageState extends State<ProfilePage> {
                     enabled: _isEditing,
                     validator: (v) =>
                         v?.trim().isEmpty == true ? l10n.required : null,
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Email — backed by Supabase Auth. Editing it sends a
+                  // confirmation link; the mirrored value in `profiles` is
+                  // updated by the auth-state listener in main.dart.
+                  TextFormField(
+                    controller: _emailController,
+                    focusNode: _emailFocusNode,
+                    decoration: InputDecoration(
+                      labelText: '${l10n.email} *',
+                      prefixIcon: const Icon(Icons.email),
+                      errorText: _showEmailError
+                          ? (_emailController.text.trim().isEmpty
+                              ? l10n.emailCannotBeEmpty
+                              : l10n.errorEmailInvalid)
+                          : null,
+                      border: _showEmailError
+                          ? OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Colors.red))
+                          : null,
+                      suffixIcon: Padding(
+                        padding: const EdgeInsets.only(right: 12),
+                        child: Icon(
+                          (_profile?.emailVerified == 1 ||
+                                  Supabase.instance.client.auth.currentUser?.emailConfirmedAt !=
+                                      null)
+                              ? Icons.verified
+                              : Icons.warning,
+                          size: 20,
+                          color: (_profile?.emailVerified == 1 ||
+                                  Supabase.instance.client.auth.currentUser?.emailConfirmedAt !=
+                                      null)
+                              ? Colors.green
+                              : Colors.orange,
+                        ),
+                      ),
+                    ),
+                    keyboardType: TextInputType.emailAddress,
+                    enabled: _isEditing,
+                    textInputAction: TextInputAction.next,
                   ),
                   const SizedBox(height: 16),
 

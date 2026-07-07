@@ -405,7 +405,7 @@ class NotificationService {
 
 class ReminderOption {
   final int value;
-  final int label;
+  final String label;
 
   const ReminderOption({required this.value, required this.label});
 }

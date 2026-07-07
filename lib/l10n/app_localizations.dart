@@ -652,6 +652,18 @@ abstract class AppLocalizations {
   /// **'Користувача з таким email не знайдено'**
   String get errorUserNotFound;
 
+  /// No description provided for @errorTooManyRequests.
+  ///
+  /// In uk, this message translates to:
+  /// **'Забагато спроб. Зачекайте кілька хвилин і спробуйте ще раз'**
+  String get errorTooManyRequests;
+
+  /// No description provided for @errorGeneric.
+  ///
+  /// In uk, this message translates to:
+  /// **'Не вдалося виконати запит. Перевірте дані та спробуйте пізніше'**
+  String get errorGeneric;
+
   /// No description provided for @stepsGoal.
   ///
   /// In uk, this message translates to:
@@ -873,6 +885,18 @@ abstract class AppLocalizations {
   /// In uk, this message translates to:
   /// **'Лист з посиланням для підтвердження було відправлено на {email}. Будь ласка, перевірте пошту та натисніть на посилання для підтвердження.'**
   String emailVerificationMessage(String email);
+
+  /// No description provided for @emailCannotBeEmpty.
+  ///
+  /// In uk, this message translates to:
+  /// **'Введіть email'**
+  String get emailCannotBeEmpty;
+
+  /// No description provided for @emailChangeConfirmationSent.
+  ///
+  /// In uk, this message translates to:
+  /// **'На {email} надіслано лист підтвердження. Поки лист не підтверджено, у профілі використовується попередній email.'**
+  String emailChangeConfirmationSent(String email);
 
   /// No description provided for @resendVerificationEmail.
   ///

@@ -289,6 +289,14 @@ class AppLocalizationsUk extends AppLocalizations {
   String get errorUserNotFound => 'Користувача з таким email не знайдено';
 
   @override
+  String get errorTooManyRequests =>
+      'Забагато спроб. Зачекайте кілька хвилин і спробуйте ще раз';
+
+  @override
+  String get errorGeneric =>
+      'Не вдалося виконати запит. Перевірте дані та спробуйте пізніше';
+
+  @override
   String get stepsGoal => 'Кроки до виконання';
 
   @override
@@ -399,6 +407,14 @@ class AppLocalizationsUk extends AppLocalizations {
   @override
   String emailVerificationMessage(String email) {
     return 'Лист з посиланням для підтвердження було відправлено на $email. Будь ласка, перевірте пошту та натисніть на посилання для підтвердження.';
+  }
+
+  @override
+  String get emailCannotBeEmpty => 'Введіть email';
+
+  @override
+  String emailChangeConfirmationSent(String email) {
+    return 'На $email надіслано лист підтвердження. Поки лист не підтверджено, у профілі використовується попередній email.';
   }
 
   @override

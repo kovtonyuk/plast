@@ -29,7 +29,42 @@ void main() async {
     anonKey: AppConstants.supabaseAnonKey,
   );
 
+  _startEmailMirror();
+
   runApp(const PlastApp());
+}
+
+/// Mirror the verified email from Supabase Auth into the `profiles` table
+/// whenever it changes. Supabase Auth sends the confirmation email itself
+/// (via [updateUser]); this listener keeps the mirrored column in sync once
+/// the user clicks the link — including when that happens in another tab
+/// or device.
+void _startEmailMirror() {
+  Supabase.instance.client.auth.onAuthStateChange.listen((data) {
+    final event = data.event;
+    if (event != AuthChangeEvent.userUpdated &&
+        event != AuthChangeEvent.signedIn) {
+      return;
+    }
+    final user = data.session?.user ?? Supabase.instance.client.auth.currentUser;
+    if (user == null) return;
+
+    final email = user.email;
+    if (email == null || email.isEmpty) return;
+    final verified = user.emailConfirmedAt != null ? 1 : 0;
+
+    // Fire-and-forget: a sync failure should not surface to the user.
+    () async {
+      try {
+        await Supabase.instance.client
+            .from('profiles')
+            .update({'email': email, 'email_verified': verified})
+            .eq('id', user.id);
+      } catch (_) {
+        // Best-effort mirror; will retry on the next auth event.
+      }
+    }();
+  });
 }
 
 class PlastApp extends StatelessWidget {

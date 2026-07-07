@@ -123,5 +123,3 @@ server {
 
 1. Локально → запусти cd /Users/serhii/Plast_app/plast_app/build/web && python3 -m http.server 8080 → відкрий http://localhost:8080.
 2. На домені → обери один із варіантів деплою вище (Firebase/Netlify/Vercel рекомендую), запуш build/web, додай свій домен у налаштуваннях хостингу. Якщо потрібна допомога з конкретним хостингом — скажи, який у тебе домен і де зареєстрований, допоможу з DNS.
-
-✻ Churned for 7m 0s

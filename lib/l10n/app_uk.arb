@@ -93,6 +93,8 @@
   "errorNetwork": "Помилка мережі. Перевірте з'єднання",
   "errorUnknown": "Сталася непередбачена помилка",
   "errorUserNotFound": "Користувача з таким email не знайдено",
+  "errorTooManyRequests": "Забагато спроб. Зачекайте кілька хвилин і спробуйте ще раз",
+  "errorGeneric": "Не вдалося виконати запит. Перевірте дані та спробуйте пізніше",
   "stepsGoal": "Кроки до виконання",
   "trainingInfo": "Інформація про вишкіл",
   "kvdchNumber": "Число",
@@ -131,6 +133,15 @@
   "emailVerificationTitle": "Підтвердження email",
   "emailVerificationMessage": "Лист з посиланням для підтвердження було відправлено на {email}. Будь ласка, перевірте пошту та натисніть на посилання для підтвердження.",
   "@emailVerificationMessage": {
+    "placeholders": {
+      "email": {
+        "type": "String"
+      }
+    }
+  },
+  "emailCannotBeEmpty": "Введіть email",
+  "emailChangeConfirmationSent": "На {email} надіслано лист підтвердження. Поки лист не підтверджено, у профілі використовується попередній email.",
+  "@emailChangeConfirmationSent": {
     "placeholders": {
       "email": {
         "type": "String"
