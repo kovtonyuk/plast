@@ -652,18 +652,6 @@ abstract class AppLocalizations {
   /// **'Користувача з таким email не знайдено'**
   String get errorUserNotFound;
 
-  /// No description provided for @errorTooManyRequests.
-  ///
-  /// In uk, this message translates to:
-  /// **'Забагато спроб. Зачекайте кілька хвилин і спробуйте ще раз'**
-  String get errorTooManyRequests;
-
-  /// No description provided for @errorGeneric.
-  ///
-  /// In uk, this message translates to:
-  /// **'Не вдалося виконати запит. Перевірте дані та спробуйте пізніше'**
-  String get errorGeneric;
-
   /// No description provided for @stepsGoal.
   ///
   /// In uk, this message translates to:

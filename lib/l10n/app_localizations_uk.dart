@@ -289,14 +289,6 @@ class AppLocalizationsUk extends AppLocalizations {
   String get errorUserNotFound => 'Користувача з таким email не знайдено';
 
   @override
-  String get errorTooManyRequests =>
-      'Забагато спроб. Зачекайте кілька хвилин і спробуйте ще раз';
-
-  @override
-  String get errorGeneric =>
-      'Не вдалося виконати запит. Перевірте дані та спробуйте пізніше';
-
-  @override
   String get stepsGoal => 'Кроки до виконання';
 
   @override

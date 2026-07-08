@@ -34,7 +34,7 @@ flutter run -d "iPhone 16 Plus"
 - flutter build ipa --export-method development 
 
 ## щоб повністю видалити Ollama з усіма даними:
-- bash rm -rf ~/.ollama
+- rm -rf ~/.ollama
 - rm -rf ~/Library/Application\ Support/Ollama/
 - sudo rm /usr/local/bin/ollama
 

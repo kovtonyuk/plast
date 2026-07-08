@@ -148,23 +148,22 @@ class _AuthPageState extends State<AuthPage> {
       // Pull a fresh, single-use captcha token from the widget. The widget
       // nulls its internal slot on read, so the next submit (success or
       // failure) will require the user to solve the captcha again.
+      //
+      // When [AppConstants.hcaptchaEnabled] is false the widget is not
+      // mounted (we don't render it in the form), so `consumeToken`
+      // returns null and the request is sent without a captcha token —
+      // this is the local-dev fallback when no site key has been pasted
+      // in yet.
       final captchaToken = _captchaKey.currentState?.consumeToken();
-      if (captchaToken == null || captchaToken.isEmpty) {
-        if (mounted) {
-          setState(() {
-            _generalError = l10n.errorGeneric;
-            _isLoading = false;
-          });
-          _captchaKey.currentState?.reset();
-        }
-        return;
-      }
+      final captchaToSend = (captchaToken != null && captchaToken.isNotEmpty)
+          ? captchaToken
+          : null;
 
       if (_isLogin) {
         final response = await Supabase.instance.client.auth.signInWithPassword(
           email: _emailController.text.trim(),
           password: _passwordController.text,
-          captchaToken: captchaToken,
+          captchaToken: captchaToSend,
         );
         if (response.user != null && mounted) {
           context.go('/calendar');
@@ -173,7 +172,7 @@ class _AuthPageState extends State<AuthPage> {
         final response = await Supabase.instance.client.auth.signUp(
           email: _emailController.text.trim(),
           password: _passwordController.text,
-          captchaToken: captchaToken,
+          captchaToken: captchaToSend,
         );
 
         if (response.user != null) {
@@ -198,7 +197,8 @@ class _AuthPageState extends State<AuthPage> {
         _generalError = _getErrorMessage(e.toString(), l10n);
       });
       // Force a fresh challenge on any failure — bad creds, captcha
-      // rejection, network error, rate limit, etc.
+      // rejection, network error, rate limit, etc. Safe to call when the
+      // widget is not mounted; the parent wrapper handles that.
       _captchaKey.currentState?.reset();
     } finally {
       if (mounted) {
@@ -300,24 +300,25 @@ class _AuthPageState extends State<AuthPage> {
                   onSubmitted: (_) => _submit(),
                 ),
                 const SizedBox(height: 20),
-                Center(
-                  child: HCaptchaWidget(
-                    key: _captchaKey,
-                    siteKey: AppConstants.hcaptchaSiteKey,
-                    onToken: (_) {
-                      // The widget already stores the token; this callback
-                      // exists so the parent rebuilds and re-evaluates the
-                      // submit-button state.
-                      if (mounted) setState(() {});
-                    },
-                    onError: (err) {
-                      if (!mounted) return;
-                      setState(() {
-                        _generalError = l10n.errorGeneric;
-                      });
-                    },
+                if (AppConstants.hcaptchaEnabled)
+                  Center(
+                    child: HCaptchaWidget(
+                      key: _captchaKey,
+                      siteKey: AppConstants.hcaptchaSiteKey,
+                      onToken: (_) {
+                        // The widget already stores the token; this callback
+                        // exists so the parent rebuilds and re-evaluates the
+                        // submit-button state.
+                        if (mounted) setState(() {});
+                      },
+                      onError: (err) {
+                        if (!mounted) return;
+                        setState(() {
+                          _generalError = l10n.errorGeneric;
+                        });
+                      },
+                    ),
                   ),
-                ),
                 if (_generalError != null) ...[
                   const SizedBox(height: 16),
                   Text(
@@ -347,7 +348,8 @@ class _AuthPageState extends State<AuthPage> {
                       _isLogin = !_isLogin;
                       _clearErrors();
                       // Force a fresh captcha challenge when switching
-                      // between login and register modes.
+                      // between login and register modes (no-op when
+                      // captcha is disabled — the key is not mounted).
                       _captchaKey.currentState?.reset();
                     });
                   },

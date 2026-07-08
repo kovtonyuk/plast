@@ -7,7 +7,23 @@ class AppConstants {
   /// hCaptcha site key (public). The corresponding secret key is configured
   /// in Supabase Dashboard → Authentication → Bot Protection. This constant
   /// is consumed by [HCaptchaWidget] in the auth flow.
-  static const String hcaptchaSiteKey = 'PASTE_YOUR_SITE_KEY_HERE';
+  ///
+  /// When the value is the placeholder (or empty), [hcaptchaEnabled] returns
+  /// false and the auth flow skips captcha entirely — useful for local
+  /// development and for staging environments where the bot-protection
+  /// flag in Supabase is turned off.
+  static const String hcaptchaSiteKey = 'a1108af4-d414-4cfc-b8a0-8b4a765ead0c';
+
+  /// `true` only when a real hCaptcha site key has been pasted in. Detects
+  /// the placeholder by checking length (real keys are ~36 chars) and that
+  /// the value is not the obvious placeholder string.
+  static bool get hcaptchaEnabled {
+    final key = hcaptchaSiteKey.trim();
+    if (key.isEmpty) return false;
+    if (key == hcaptchaSiteKey) return false;
+    if (key.length < 20) return false; // real keys are 36+ chars
+    return true;
+  }
 
   static const String phonePrefix = '+380';
 
