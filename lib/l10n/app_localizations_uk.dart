@@ -479,6 +479,12 @@ class AppLocalizationsUk extends AppLocalizations {
   String get editPlastActivity => 'Редагувати пластову діяльність';
 
   @override
+  String get errorTooManyRequests => 'Забагато запитів. Спробуйте пізніше.';
+
+  @override
+  String get errorGeneric => 'Сталася помилка. Спробуйте пізніше.';
+
+  @override
   String get projectName => 'Назва проекту';
 
   @override
@@ -803,4 +809,25 @@ class AppLocalizationsUk extends AppLocalizations {
 
   @override
   String get result => 'Результат';
+
+  @override
+  String get meetupInfo => 'Інформація про сходини';
+
+  @override
+  String get meetupTheme => 'Тема';
+
+  @override
+  String get meetupDate => 'Дата сходин';
+
+  @override
+  String get meetupAttendees => 'Присутні';
+
+  @override
+  String get meetupComment => 'Коментар';
+
+  @override
+  String get addMeetup => 'Додати сходини';
+
+  @override
+  String get editMeetup => 'Редагувати сходини';
 }

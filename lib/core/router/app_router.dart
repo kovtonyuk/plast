@@ -15,6 +15,7 @@ import '../../features/link_courier/presentation/link_courier_form_page.dart';
 import '../../features/your_kurin/presentation/your_kurin_page.dart';
 import '../../features/your_kurin/presentation/your_kurin_form_page.dart';
 import '../../features/camps/presentation/camp_info_page.dart';
+import '../../features/meetup_info/presentation/meetup_info_page.dart';
 import '../../features/auth/presentation/auth_page.dart';
 import '../../features/auth/presentation/email_verification_page.dart';
 import '../../features/auth/presentation/password_recovery_page.dart';
@@ -148,6 +149,10 @@ final _router = GoRouter(
     GoRoute(
       path: '/camp-info',
       builder: (context, state) => const CampInfoPage(),
+    ),
+    GoRoute(
+      path: '/meetup-info',
+      builder: (context, state) => const MeetupInfoPage(),
     ),
     GoRoute(
       path: '/admin-activities',
@@ -456,6 +461,15 @@ class _MainScaffoldState extends State<MainScaffold> {
               onTap: () {
                 Navigator.pop(context);
                 context.push('/camp-info');
+              },
+            ),
+            ListTile(
+              key: const Key('menu_meetup_info'),
+              leading: const Icon(Icons.groups),
+              title: Text(l10n.meetupInfo),
+              onTap: () {
+                Navigator.pop(context);
+                context.push('/meetup-info');
               },
             ),
             const Divider(),

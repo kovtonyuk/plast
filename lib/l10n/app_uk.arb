@@ -169,6 +169,8 @@
   "plastActivities": "Пластова діяльність",
   "addPlastActivity": "Додати пластову діяльність",
   "editPlastActivity": "Редагувати пластову діяльність",
+  "errorTooManyRequests": "Забагато запитів. Спробуйте пізніше.",
+  "errorGeneric": "Сталася помилка. Спробуйте пізніше.",
   "projectName": "Назва проекту",
   "area": "Ділянка",
   "date": "Дата",
@@ -283,5 +285,12 @@
   "ulad": "Улад",
   "level": "Рівень",
   "role": "Роль",
-  "result": "Результат"
+  "result": "Результат",
+  "meetupInfo": "Інформація про сходини",
+  "meetupTheme": "Тема",
+  "meetupDate": "Дата сходин",
+  "meetupAttendees": "Присутні",
+  "meetupComment": "Коментар",
+  "addMeetup": "Додати сходини",
+  "editMeetup": "Редагувати сходини"
 }

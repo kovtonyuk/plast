@@ -1024,6 +1024,18 @@ abstract class AppLocalizations {
   /// **'Редагувати пластову діяльність'**
   String get editPlastActivity;
 
+  /// No description provided for @errorTooManyRequests.
+  ///
+  /// In uk, this message translates to:
+  /// **'Забагато запитів. Спробуйте пізніше.'**
+  String get errorTooManyRequests;
+
+  /// No description provided for @errorGeneric.
+  ///
+  /// In uk, this message translates to:
+  /// **'Сталася помилка. Спробуйте пізніше.'**
+  String get errorGeneric;
+
   /// No description provided for @projectName.
   ///
   /// In uk, this message translates to:
@@ -1671,6 +1683,48 @@ abstract class AppLocalizations {
   /// In uk, this message translates to:
   /// **'Результат'**
   String get result;
+
+  /// No description provided for @meetupInfo.
+  ///
+  /// In uk, this message translates to:
+  /// **'Інформація про сходини'**
+  String get meetupInfo;
+
+  /// No description provided for @meetupTheme.
+  ///
+  /// In uk, this message translates to:
+  /// **'Тема'**
+  String get meetupTheme;
+
+  /// No description provided for @meetupDate.
+  ///
+  /// In uk, this message translates to:
+  /// **'Дата сходин'**
+  String get meetupDate;
+
+  /// No description provided for @meetupAttendees.
+  ///
+  /// In uk, this message translates to:
+  /// **'Присутні'**
+  String get meetupAttendees;
+
+  /// No description provided for @meetupComment.
+  ///
+  /// In uk, this message translates to:
+  /// **'Коментар'**
+  String get meetupComment;
+
+  /// No description provided for @addMeetup.
+  ///
+  /// In uk, this message translates to:
+  /// **'Додати сходини'**
+  String get addMeetup;
+
+  /// No description provided for @editMeetup.
+  ///
+  /// In uk, this message translates to:
+  /// **'Редагувати сходини'**
+  String get editMeetup;
 }
 
 class _AppLocalizationsDelegate
