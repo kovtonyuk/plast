@@ -4,6 +4,11 @@ class AppConstants {
   static const String supabaseAnonKey =
       'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZtZG5yeHZ5bG1iaXJrenJtdmh6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQwMDYyODMsImV4cCI6MjA4OTU4MjI4M30.gDg-MergM8zKY3bmk7wmEVbN1B4VxrDvxakUpCyNaw0';
 
+  /// hCaptcha site key (public). The corresponding secret key is configured
+  /// in Supabase Dashboard → Authentication → Bot Protection. This constant
+  /// is consumed by [HCaptchaWidget] in the auth flow.
+  static const String hcaptchaSiteKey = 'PASTE_YOUR_SITE_KEY_HERE';
+
   static const String phonePrefix = '+380';
 
   /// Strip +380 prefix from phone number (for displaying in UI)

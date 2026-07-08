@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../../core/captcha/hcaptcha_widget.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../core/utils/debouncer.dart';
 import '../../../l10n/app_localizations.dart';
@@ -17,6 +18,7 @@ class _AuthPageState extends State<AuthPage> {
   final _passwordController = TextEditingController();
   final _firstNameController = TextEditingController();
   final _lastNameController = TextEditingController();
+  final _captchaKey = GlobalKey<HCaptchaWidgetState>();
   // Debouncer: prevents double-submits from a single user and absorbs a few
   // rapid taps that would otherwise count as separate hits on the auth
   // endpoint (Supabase rate limit is 30 signups/hour per IP).
@@ -76,6 +78,12 @@ class _AuthPageState extends State<AuthPage> {
     }
     if (error.contains('Unable to validate email address')) {
       return l10n.errorEmailInvalid;
+    }
+    // Captcha rejection by Supabase (expired, missing, or wrong token).
+    // The widget has already been reset, so the user can solve a fresh
+    // challenge and retry.
+    if (error.contains('captcha') || error.contains('Captcha')) {
+      return l10n.errorGeneric;
     }
     return l10n.errorGeneric;
   }
@@ -137,10 +145,26 @@ class _AuthPageState extends State<AuthPage> {
     setState(() => _isLoading = true);
 
     try {
+      // Pull a fresh, single-use captcha token from the widget. The widget
+      // nulls its internal slot on read, so the next submit (success or
+      // failure) will require the user to solve the captcha again.
+      final captchaToken = _captchaKey.currentState?.consumeToken();
+      if (captchaToken == null || captchaToken.isEmpty) {
+        if (mounted) {
+          setState(() {
+            _generalError = l10n.errorGeneric;
+            _isLoading = false;
+          });
+          _captchaKey.currentState?.reset();
+        }
+        return;
+      }
+
       if (_isLogin) {
         final response = await Supabase.instance.client.auth.signInWithPassword(
           email: _emailController.text.trim(),
           password: _passwordController.text,
+          captchaToken: captchaToken,
         );
         if (response.user != null && mounted) {
           context.go('/calendar');
@@ -149,6 +173,7 @@ class _AuthPageState extends State<AuthPage> {
         final response = await Supabase.instance.client.auth.signUp(
           email: _emailController.text.trim(),
           password: _passwordController.text,
+          captchaToken: captchaToken,
         );
 
         if (response.user != null) {
@@ -172,10 +197,17 @@ class _AuthPageState extends State<AuthPage> {
       setState(() {
         _generalError = _getErrorMessage(e.toString(), l10n);
       });
+      // Force a fresh challenge on any failure — bad creds, captcha
+      // rejection, network error, rate limit, etc.
+      _captchaKey.currentState?.reset();
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
       }
+      // Reset in success paths too so re-opening the page is clean. The
+      // success-navigation cases tear down the widget, but calling reset
+      // here is a cheap idempotent safety net.
+      _captchaKey.currentState?.reset();
     }
   }
 
@@ -267,6 +299,25 @@ class _AuthPageState extends State<AuthPage> {
                   textInputAction: TextInputAction.done,
                   onSubmitted: (_) => _submit(),
                 ),
+                const SizedBox(height: 20),
+                Center(
+                  child: HCaptchaWidget(
+                    key: _captchaKey,
+                    siteKey: AppConstants.hcaptchaSiteKey,
+                    onToken: (_) {
+                      // The widget already stores the token; this callback
+                      // exists so the parent rebuilds and re-evaluates the
+                      // submit-button state.
+                      if (mounted) setState(() {});
+                    },
+                    onError: (err) {
+                      if (!mounted) return;
+                      setState(() {
+                        _generalError = l10n.errorGeneric;
+                      });
+                    },
+                  ),
+                ),
                 if (_generalError != null) ...[
                   const SizedBox(height: 16),
                   Text(
@@ -295,6 +346,9 @@ class _AuthPageState extends State<AuthPage> {
                     setState(() {
                       _isLogin = !_isLogin;
                       _clearErrors();
+                      // Force a fresh captcha challenge when switching
+                      // between login and register modes.
+                      _captchaKey.currentState?.reset();
                     });
                   },
                   child: Text(_isLogin ? l10n.noAccount : l10n.haveAccount),
