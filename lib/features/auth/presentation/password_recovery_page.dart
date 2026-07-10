@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../../core/captcha/hcaptcha_widget.dart';
+import '../../../core/constants/app_constants.dart';
 import '../../../l10n/app_localizations.dart';
 
 class PasswordRecoveryPage extends StatefulWidget {
@@ -12,8 +14,14 @@ class PasswordRecoveryPage extends StatefulWidget {
 
 class _PasswordRecoveryPageState extends State<PasswordRecoveryPage> {
   final _emailController = TextEditingController();
+  final _captchaKey = GlobalKey<HCaptchaWidgetState>();
   bool _isLoading = false;
   bool _emailSent = false;
+  // Tracks whether the user has solved a fresh challenge since the
+  // last reset. The submit button stays disabled until this is
+  // true, otherwise the request goes to Supabase without a
+  // captcha_token and Supabase Bot Protection rejects it.
+  bool _captchaSolved = false;
   String? _emailError;
   String? _generalError;
 
@@ -59,18 +67,72 @@ class _PasswordRecoveryPageState extends State<PasswordRecoveryPage> {
     setState(() => _isLoading = true);
 
     try {
+      // Capture the captcha token through the widget's
+      // executeAndConsume(). It returns the cached token if the
+      // user has already solved the challenge (the gate on the
+      // submit button ensures this is the case), or waits for the
+      // next onToken callback otherwise. The token is one-shot —
+      // it cannot be reused for a second submit, which is why
+      // _captchaKey.currentState?.reset() runs in the finally
+      // block to force a fresh challenge on the next attempt.
+      final captchaToken = AppConstants.hcaptchaEnabled
+          ? await _captchaKey.currentState?.executeAndConsume()
+          : null;
+      final captchaToSend = (captchaToken != null && captchaToken.isNotEmpty)
+          ? captchaToken
+          : null;
+
+      // Belt-and-suspenders: if captcha is enabled but the widget
+      // produced no token, bail out before hitting Supabase with
+      // a missing captcha_token. This would otherwise return
+      // "no captcha_token found" and the user would be stuck.
+      if (AppConstants.hcaptchaEnabled && captchaToSend == null) {
+        if (!mounted) return;
+        setState(() {
+          _generalError = l10n.errorGeneric;
+          _isLoading = false;
+        });
+        return;
+      }
+
       await Supabase.instance.client.auth.resetPasswordForEmail(
         _emailController.text.trim(),
+        // Tell Supabase to send the user to our reset-password
+        // page after they click the link in the email. The
+        // recovery link includes a one-time access token that
+        // signs the user in on arrival, so we don't need to
+        // prompt them to log in again on the reset form.
+        redirectTo: '${Uri.base.origin}/auth/reset-password',
+        captchaToken: captchaToSend,
       );
-      setState(() => _emailSent = true);
+      if (!mounted) return;
+      // Hand off to the dedicated "check your email" page so the
+      // user can read the instructions on a single-purpose screen
+      // and has a clear "back to login" button. The email is
+      // passed as a query param so the page can echo it back
+      // ("we sent it to ...").
+      context.go(
+        '/auth/recover-sent?email=${Uri.encodeComponent(_emailController.text.trim())}',
+      );
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _generalError = _getErrorMessage(e.toString(), l10n);
+        // A spent token must be replaced by a fresh challenge
+        // before another submit can succeed.
+        _captchaSolved = false;
       });
+      _captchaKey.currentState?.reset();
     } finally {
       if (mounted) {
-        setState(() => _isLoading = false);
+        setState(() {
+          _isLoading = false;
+          _captchaSolved = false;
+        });
       }
+      // Defensive: clear widget state even on success, so the
+      // next visit starts clean.
+      _captchaKey.currentState?.reset();
     }
   }
 
@@ -129,6 +191,28 @@ class _PasswordRecoveryPageState extends State<PasswordRecoveryPage> {
                   textInputAction: TextInputAction.done,
                   onSubmitted: (_) => _sendResetEmail(),
                 ),
+                if (AppConstants.hcaptchaEnabled) ...[
+                  const SizedBox(height: 20),
+                  Center(
+                    child: HCaptchaWidget(
+                      key: _captchaKey,
+                      siteKey: AppConstants.hcaptchaSiteKey,
+                      onToken: (_) {
+                        if (mounted) {
+                          setState(() => _captchaSolved = true);
+                        }
+                      },
+                      onError: (err) {
+                        debugPrint('hCaptcha error: $err');
+                        if (!mounted) return;
+                        setState(() {
+                          _captchaSolved = false;
+                          _generalError = l10n.errorGeneric;
+                        });
+                      },
+                    ),
+                  ),
+                ],
                 if (_generalError != null) ...[
                   const SizedBox(height: 16),
                   Text(
@@ -141,7 +225,16 @@ class _PasswordRecoveryPageState extends State<PasswordRecoveryPage> {
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
-                    onPressed: _isLoading ? null : _sendResetEmail,
+                    // When hCaptcha is enabled, the button stays
+                    // disabled until the user solves the challenge.
+                    // Without this guard, the user could submit
+                    // before the token is produced and Supabase
+                    // would respond with "no captcha_token found".
+                    onPressed: (_isLoading ||
+                            (AppConstants.hcaptchaEnabled &&
+                                !_captchaSolved))
+                        ? null
+                        : _sendResetEmail,
                     child: _isLoading
                         ? const SizedBox(
                             height: 20,

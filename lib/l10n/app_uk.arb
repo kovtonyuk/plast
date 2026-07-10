@@ -78,6 +78,24 @@
   "resetPassword": "Відновити пароль",
   "resetPasswordSent": "Лист для відновлення пароля відправлено",
   "checkEmail": "Перевірте свою пошту",
+  "resetPasswordInstructions": "Введіть новий пароль для вашого акаунту. Після збереження старий пароль більше не діятиме.",
+  "newPassword": "Новий пароль",
+  "confirmPassword": "Підтвердити пароль",
+  "errorPasswordsDoNotMatch": "Паролі не співпадають",
+  "errorRecoverySessionExpired": "Посилання для відновлення пароля застаріло або вже використане. Запросіть нове.",
+  "passwordResetSuccessTitle": "Пароль відновлено",
+  "passwordResetSuccessMessage": "Ваш пароль успішно оновлено. Тепер ви можете увійти з новим паролем.",
+  "continueToApp": "Перейти до додатку",
+  "passwordResetEmailSentTitle": "Перевірте пошту",
+  "passwordResetEmailSentMessage": "Ми надіслали інструкції для відновлення пароля на {email}. Перейдіть за посиланням у листі, щоб встановити новий пароль.",
+  "@passwordResetEmailSentMessage": {
+    "placeholders": {
+      "email": {
+        "type": "String"
+      }
+    }
+  },
+  "backToLogin": "Повернутися до входу",
   "back": "Назад",
   "today": "Сьогодні",
   "noNickname": "немає",
@@ -137,6 +155,9 @@
       }
     }
   },
+  "emailConfirmedTitle": "Email підтверджено",
+  "emailConfirmedMessage": "Дякуємо! Вашу електронну адресу підтверджено. Тепер ви можете увійти в додаток.",
+  "emailConfirmedCta": "Увійти",
   "emailCannotBeEmpty": "Введіть email",
   "emailChangeConfirmationSent": "На {email} надіслано лист підтвердження. Поки лист не підтверджено, у профілі використовується попередній email.",
   "@emailChangeConfirmationSent": {
@@ -292,5 +313,15 @@
   "meetupAttendees": "Присутні",
   "meetupComment": "Коментар",
   "addMeetup": "Додати сходини",
-  "editMeetup": "Редагувати сходини"
+  "editMeetup": "Редагувати сходини",
+  "meetupSelectedAttendees": "Вибрані присутні",
+  "meetupAddAttendee": "Додати присутнього",
+  "meetupNoAttendeesAvailable": "Немає доступних учасників",
+  "meetupAttendeesEmpty": "Присутніх не вибрано",
+  "meetupSelectFromFirstUnit": "З гуртка",
+  "meetupSelectFromKurin": "З куреня",
+  "addKurinMember": "Додати учасника куреня",
+  "editKurinMember": "Редагувати учасника куреня",
+  "kurinMembers": "Учасники куреня",
+  "noKurin": "Курінь ще не створено"
 }

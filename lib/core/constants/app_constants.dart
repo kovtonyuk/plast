@@ -14,13 +14,13 @@ class AppConstants {
   /// flag in Supabase is turned off.
   static const String hcaptchaSiteKey = 'a1108af4-d414-4cfc-b8a0-8b4a765ead0c';
 
-  /// `true` only when a real hCaptcha site key has been pasted in. Detects
-  /// the placeholder by checking length (real keys are ~36 chars) and that
-  /// the value is not the obvious placeholder string.
+  /// `true` only when a real hCaptcha site key has been pasted in.
+  /// Detects the placeholder by length (real hCaptcha site keys are
+  /// 36+ chars) — empty strings or short placeholders are treated as
+  /// "not configured" and the auth flow skips captcha entirely.
   static bool get hcaptchaEnabled {
     final key = hcaptchaSiteKey.trim();
     if (key.isEmpty) return false;
-    if (key == hcaptchaSiteKey) return false;
     if (key.length < 20) return false; // real keys are 36+ chars
     return true;
   }

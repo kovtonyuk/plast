@@ -14,11 +14,16 @@ import '../../features/link_courier/presentation/link_courier_page.dart';
 import '../../features/link_courier/presentation/link_courier_form_page.dart';
 import '../../features/your_kurin/presentation/your_kurin_page.dart';
 import '../../features/your_kurin/presentation/your_kurin_form_page.dart';
+import '../../features/your_kurin/presentation/kurin_members_page.dart';
 import '../../features/camps/presentation/camp_info_page.dart';
 import '../../features/meetup_info/presentation/meetup_info_page.dart';
 import '../../features/auth/presentation/auth_page.dart';
 import '../../features/auth/presentation/email_verification_page.dart';
+import '../../features/auth/presentation/email_confirmed_page.dart';
 import '../../features/auth/presentation/password_recovery_page.dart';
+import '../../features/auth/presentation/password_reset_email_sent_page.dart';
+import '../../features/auth/presentation/reset_password_page.dart';
+import '../../features/auth/presentation/password_reset_success_page.dart';
 import '../../features/calendar/presentation/calendar_page.dart';
 import '../../features/camps/presentation/camps_page.dart';
 import '../../features/events/presentation/add_event_page.dart';
@@ -50,12 +55,44 @@ final _router = GoRouter(
     final isLoggedIn = Supabase.instance.client.auth.currentUser != null;
     final isAuthRoute =
         state.matchedLocation == '/auth' ||
-        state.matchedLocation == '/auth/recover';
+        state.matchedLocation == '/auth/recover' ||
+        // /auth/verify-email is reachable even when a session was
+        // created (Supabase signs the user in immediately after
+        // signUp, before email confirmation). Without this branch
+        // the redirect would kick the user straight to /calendar
+        // and the verify-email screen would never show.
+        state.matchedLocation == '/auth/verify-email' ||
+        // /auth/confirmed is the landing target of the email
+        // confirmation link. Whether or not the user is signed in
+        // at this point depends on Supabase's email confirmation
+        // settings, so we always let the route render and let it
+        // decide what to do.
+        state.matchedLocation == '/auth/confirmed' ||
+        // /auth/recover-sent is the post-submit screen for
+        // password recovery. Always reachable so the user can
+        // read the "check your email" message regardless of
+        // session state.
+        state.matchedLocation == '/auth/recover-sent' ||
+        // /auth/reset-password is where the user lands after
+        // clicking the recovery link. Supabase has signed them in
+        // on a one-time session, so isLoggedIn is true and the
+        // redirect would otherwise kick them to /calendar.
+        state.matchedLocation == '/auth/reset-password' ||
+        // /auth/reset-success is the post-update screen. The user
+        // is still signed in (Supabase rotated the password in
+        // place) and we want them to see the confirmation before
+        // they continue.
+        state.matchedLocation == '/auth/reset-success';
 
     if (!isLoggedIn && !isAuthRoute) {
       return '/auth';
     }
-    if (isLoggedIn && isAuthRoute) {
+    // Only auto-redirect logged-in users to /calendar when they're
+    // still on the plain /auth landing. /auth/verify-email is
+    // allowed through so the user can read the "check your inbox"
+    // instructions before the confirmation link activates their
+    // session.
+    if (isLoggedIn && state.matchedLocation == '/auth') {
       return '/calendar';
     }
     return null;
@@ -67,11 +104,30 @@ final _router = GoRouter(
       builder: (context, state) => const PasswordRecoveryPage(),
     ),
     GoRoute(
+      path: '/auth/recover-sent',
+      builder: (context, state) {
+        final email = state.uri.queryParameters['email'] ?? '';
+        return PasswordResetEmailSentPage(email: email);
+      },
+    ),
+    GoRoute(
+      path: '/auth/reset-password',
+      builder: (context, state) => const ResetPasswordPage(),
+    ),
+    GoRoute(
+      path: '/auth/reset-success',
+      builder: (context, state) => const PasswordResetSuccessPage(),
+    ),
+    GoRoute(
       path: '/auth/verify-email',
       builder: (context, state) {
         final email = state.uri.queryParameters['email'] ?? '';
         return EmailVerificationPage(email: email);
       },
+    ),
+    GoRoute(
+      path: '/auth/confirmed',
+      builder: (context, state) => const EmailConfirmedPage(),
     ),
     StatefulShellRoute.indexedStack(
       builder: (context, state, navigationShell) {
@@ -251,6 +307,14 @@ final _router = GoRouter(
           builder: (context, state) {
             final extra = state.extra as YourKurinModel?;
             return YourKurinFormPage(unitToEdit: extra);
+          },
+        ),
+        GoRoute(
+          path: ':kurinId/members',
+          builder: (context, state) {
+            final kurinId = state.pathParameters['kurinId']!;
+            final kurinName = state.extra as String? ?? '';
+            return KurinMembersPage(kurinId: kurinId, kurinName: kurinName);
           },
         ),
       ],

@@ -273,6 +273,14 @@ class _YourKurinPageState extends State<YourKurinPage> {
                             ),
                         ],
                       ),
+                      trailing: IconButton(
+                        icon: const Icon(Icons.people_outline),
+                        tooltip: l10n.kurinMembers,
+                        onPressed: () => context.push(
+                          '/your-kurin/${unit.id}/members',
+                          extra: unit.name,
+                        ),
+                      ),
                       onTap: () async {
                         await context.push('/your-kurin/edit', extra: unit);
                         _loadUnits();

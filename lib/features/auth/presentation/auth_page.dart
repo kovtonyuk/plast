@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -27,6 +29,14 @@ class _AuthPageState extends State<AuthPage> {
   bool _isLoading = false;
   bool _obscurePassword = true;
 
+  // `true` between the user solving the captcha and the next reset
+  // call. Submit is enabled only while this is true. We don't store
+  // the token here — the widget owns it and hands it out exactly once
+  // via `consumeToken`. Storing the token at the page level caused
+  // "already-seen-response" errors from hCaptcha because the same
+  // value could end up being submitted twice.
+  bool _captchaSolved = false;
+
   // Error states
   String? _firstNameError;
   String? _lastNameError;
@@ -55,10 +65,15 @@ class _AuthPageState extends State<AuthPage> {
 
   String _getErrorMessage(String error, AppLocalizations l10n) {
     // Supabase returns 429 (rate limited) with messages like
-    // "Too Many Requests" or "rate limit exceeded" or HTTP code 429.
+    // "Too Many Requests", "rate limit exceeded", or "email rate limit
+    // exceeded" (the latter appears in the dev console when the anon
+    // key has been scraped by bots — see migrations/README_RATE_LIMIT.md).
+    // Match on the bare phrase so we catch all of them.
     if (error.contains('429') ||
         error.contains('Too Many Requests') ||
-        error.contains('rate limit')) {
+        error.contains('rate limit') ||
+        error.contains('rate_limit') ||
+        error.contains('too many')) {
       return l10n.errorTooManyRequests;
     }
     if (error.contains('Invalid login credentials')) {
@@ -89,6 +104,12 @@ class _AuthPageState extends State<AuthPage> {
   }
 
   Future<void> _submit() async {
+    // Drop double-taps: the submit button is disabled while loading,
+    // but `onSubmitted` on the password field fires regardless of
+    // that — a user pressing Enter twice in a row would otherwise
+    // fire two signUp calls and create a duplicate account (or hit
+    // Supabase's "user already registered" path).
+    if (_isLoading) return;
     // Debounce: drop the request if a previous one is still in flight.
     // This is the main defense against 429 from Supabase auth endpoint.
     await _submitDebouncer.run(_performSubmit);
@@ -145,19 +166,31 @@ class _AuthPageState extends State<AuthPage> {
     setState(() => _isLoading = true);
 
     try {
-      // Pull a fresh, single-use captcha token from the widget. The widget
-      // nulls its internal slot on read, so the next submit (success or
-      // failure) will require the user to solve the captcha again.
-      //
-      // When [AppConstants.hcaptchaEnabled] is false the widget is not
-      // mounted (we don't render it in the form), so `consumeToken`
-      // returns null and the request is sent without a captcha token —
-      // this is the local-dev fallback when no site key has been pasted
-      // in yet.
-      final captchaToken = _captchaKey.currentState?.consumeToken();
+      // Belt-and-suspenders: even though the submit button is disabled
+      // until captcha is solved, double-check here. We call
+      // `executeAndConsume()` which forces hCaptcha to issue a fresh
+      // token via `hcaptcha.execute()` and waits for the new token
+      // before returning. This is the only reliable way to avoid
+      // hCaptcha's "already-seen-response" rejection — using the
+      // cached token from the widget can resend a value that hCaptcha
+      // has already invalidated.
+      final captchaToken = AppConstants.hcaptchaEnabled
+          ? await _captchaKey.currentState?.executeAndConsume()
+          : null;
       final captchaToSend = (captchaToken != null && captchaToken.isNotEmpty)
           ? captchaToken
           : null;
+
+      // If captcha is enabled but the widget had no token (e.g. user
+      // raced past the disabled button via keyboard), bail out before
+      // hitting Supabase with a missing captcha_token.
+      if (AppConstants.hcaptchaEnabled && captchaToSend == null) {
+        setState(() {
+          _generalError = l10n.errorGeneric;
+          _isLoading = false;
+        });
+        return;
+      }
 
       if (_isLogin) {
         final response = await Supabase.instance.client.auth.signInWithPassword(
@@ -169,44 +202,134 @@ class _AuthPageState extends State<AuthPage> {
           context.go('/calendar');
         }
       } else {
-        final response = await Supabase.instance.client.auth.signUp(
-          email: _emailController.text.trim(),
-          password: _passwordController.text,
-          captchaToken: captchaToSend,
-        );
-
-        if (response.user != null) {
-          await Supabase.instance.client.from('profiles').insert({
-            'id': response.user!.id,
-            'first_name': _firstNameController.text.trim(),
-            'last_name': _lastNameController.text.trim(),
-            'email': _emailController.text.trim(),
-            'email_verified': 0,
-            'phone': '',
-            'location': '',
-            'created_at': DateTime.now().toIso8601String(),
-          });
-
-          if (mounted) {
-            context.go('/auth/verify-email?email=${Uri.encodeComponent(_emailController.text.trim())}');
+        // Pre-check: look up the email in the `profiles` table
+        // (populated at signup, mirrored from auth.users via the
+        // listener in main.dart). This is a reliable way to detect
+        // duplicates without burning a captcha token on a signIn
+        // attempt that Supabase Bot Protection would reject.
+        //
+        // The RLS policy on `profiles` allows anon SELECT (we
+        // explicitly grant it so the registration form can show
+        // "email already in use" without forcing a sign-in first).
+        // If your RLS is stricter, the query returns 0 rows and we
+        // fall through to signUp — which is also fine, because
+        // Supabase's own duplicate check (when "Enable strict
+        // email validation" is on) will catch the case.
+        try {
+          final existing = await Supabase.instance.client
+              .from('profiles')
+              .select('id')
+              .eq('email', _emailController.text.trim())
+              .maybeSingle();
+          if (existing != null) {
+            if (!mounted) return;
+            setState(() {
+              _generalError = l10n.errorUserAlreadyRegistered;
+              _isLoading = false;
+            });
+            return;
           }
+        } catch (_) {
+          // Best-effort: if the lookup fails (RLS denial, network
+          // blip), don't block signup. Supabase's own checks are
+          // the source of truth.
         }
+
+        AuthResponse? response;
+        try {
+          // The `emailRedirectTo` parameter tells Supabase where to
+          // send the user after they click the confirmation link in
+          // the email. On web the link points to a URL on our domain
+          // (`<site>/auth/confirmed`), which the router maps to
+          // [EmailConfirmedPage]. On mobile the same path is opened
+          // in the WebView. The exact value is the same on every
+          // platform — Supabase picks the right protocol based on
+          // the request origin.
+          response = await Supabase.instance.client.auth.signUp(
+            email: _emailController.text.trim(),
+            password: _passwordController.text,
+            captchaToken: captchaToSend,
+            emailRedirectTo: '${Uri.base.origin}/auth/confirmed',
+          );
+        } on AuthException catch (e) {
+          // Supabase returns 422 "user already registered" when
+          // "Enable strict email validation" is on in the dashboard.
+          // Surface a clean error and bail out before we try to
+          // navigate anywhere — the user is still on the register
+          // form, so we don't want to push them to verify-email.
+          //
+          // The auth.users trigger installed in
+          // migrations/015_prevent_duplicate_auth_users.sql
+          // blocks duplicates at the database level. Supabase
+          // does not propagate the trigger's exception text to
+          // the client — it returns a generic "Database error
+          // saving new user" instead. Treat that message as a
+          // duplicate-account signal so the user still sees the
+          // friendly "email already in use" error.
+          if (e.message.contains('already registered') ||
+              e.message.contains('User already registered') ||
+              e.statusCode == '422' ||
+              e.message.contains('Database error saving new user')) {
+            if (!mounted) return;
+            setState(() {
+              _generalError = l10n.errorUserAlreadyRegistered;
+              _isLoading = false;
+            });
+            return;
+          }
+          rethrow;
+        }
+
+        if (!mounted) return;
+        debugPrint(
+          'signUp response: user=${response.user?.id}, session=${response.session?.accessToken != null}',
+        );
+        if (response.user == null) {
+          setState(() {
+            _generalError = l10n.errorGeneric;
+            _isLoading = false;
+          });
+          return;
+        }
+
+        // Fire-and-forget profile insert — see _createProfileSafely
+        // docstring for why we don't block the navigation on it.
+        unawaited(_createProfileSafely(
+          userId: response.user!.id,
+          email: _emailController.text.trim(),
+          firstName: _firstNameController.text.trim(),
+          lastName: _lastNameController.text.trim(),
+        ));
+
+        // Navigate immediately. The profile upsert is fire-and-forget.
+        context.go('/auth/verify-email?email=${Uri.encodeComponent(_emailController.text.trim())}');
+        return;
       }
-    } catch (e) {
+    } catch (e, st) {
+      debugPrint('Auth error: $e');
+      debugPrint('Stack: $st');
       setState(() {
         _generalError = _getErrorMessage(e.toString(), l10n);
+        // Force the user to solve a fresh captcha after any failure —
+        // a submitted token is consumed and can't be reused.
+        _captchaSolved = false;
       });
-      // Force a fresh challenge on any failure — bad creds, captcha
-      // rejection, network error, rate limit, etc. Safe to call when the
-      // widget is not mounted; the parent wrapper handles that.
+      // Reset() drops the cached token in the widget and asks hCaptcha
+      // for a fresh challenge. Without this the next submit would
+      // either have no token (button stays disabled, no path forward)
+      // or reuse a spent token (hCaptcha's "already-seen-response").
       _captchaKey.currentState?.reset();
     } finally {
       if (mounted) {
-        setState(() => _isLoading = false);
+        setState(() {
+          _isLoading = false;
+          // Same logic on the success path: the token was just spent,
+          // so the captcha must be re-solved before another submit.
+          _captchaSolved = false;
+        });
       }
-      // Reset in success paths too so re-opening the page is clean. The
-      // success-navigation cases tear down the widget, but calling reset
-      // here is a cheap idempotent safety net.
+      // Defensive: ensure the widget's internal state is also cleared
+      // even on success, so re-opening the page is clean.
       _captchaKey.currentState?.reset();
     }
   }
@@ -306,14 +429,15 @@ class _AuthPageState extends State<AuthPage> {
                       key: _captchaKey,
                       siteKey: AppConstants.hcaptchaSiteKey,
                       onToken: (_) {
-                        // The widget already stores the token; this callback
-                        // exists so the parent rebuilds and re-evaluates the
-                        // submit-button state.
-                        if (mounted) setState(() {});
+                        if (mounted) {
+                          setState(() => _captchaSolved = true);
+                        }
                       },
                       onError: (err) {
+                        debugPrint('hCaptcha error: $err');
                         if (!mounted) return;
                         setState(() {
+                          _captchaSolved = false;
                           _generalError = l10n.errorGeneric;
                         });
                       },
@@ -331,7 +455,16 @@ class _AuthPageState extends State<AuthPage> {
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
-                    onPressed: _isLoading ? null : _submit,
+                    // When hCaptcha is enabled, the button stays disabled
+                    // until the user solves the challenge. Without this
+                    // guard, the user could submit before the token is
+                    // produced and Supabase would respond with
+                    // "no captcha_token found".
+                    onPressed: (_isLoading ||
+                            (AppConstants.hcaptchaEnabled &&
+                                !_captchaSolved))
+                        ? null
+                        : _submit,
                     child: _isLoading
                         ? const SizedBox(
                             height: 20,
@@ -347,6 +480,7 @@ class _AuthPageState extends State<AuthPage> {
                     setState(() {
                       _isLogin = !_isLogin;
                       _clearErrors();
+                      _captchaSolved = false;
                       // Force a fresh captcha challenge when switching
                       // between login and register modes (no-op when
                       // captcha is disabled — the key is not mounted).
@@ -370,5 +504,37 @@ class _AuthPageState extends State<AuthPage> {
         ),
       ),
     );
+  }
+
+  /// Insert the new user's profile row, but with a hard 5s timeout.
+  /// If the call hangs (Supabase upstream timeout, RLS policy holding
+  /// the row, etc.) we drop it and log — the user has already been
+  /// created in `auth.users` and the email-mirror listener in main.dart
+  /// will keep the profile in sync on later auth events. The signup
+  /// flow must never be blocked on this side-effect.
+  Future<void> _createProfileSafely({
+    required String userId,
+    required String email,
+    required String firstName,
+    required String lastName,
+  }) async {
+    try {
+      await Supabase.instance.client
+          .from('profiles')
+          .upsert({
+            'id': userId,
+            'first_name': firstName,
+            'last_name': lastName,
+            'email': email,
+            'email_verified': 0,
+            'phone': '',
+            'location': '',
+            'created_at': DateTime.now().toIso8601String(),
+          })
+          .timeout(const Duration(seconds: 5));
+    } catch (e) {
+      debugPrint('Profile upsert failed (non-fatal): $e');
+      // Best-effort — will be retried on next auth state change.
+    }
   }
 }

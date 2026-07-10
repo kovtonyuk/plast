@@ -243,6 +243,44 @@ class AppLocalizationsUk extends AppLocalizations {
   String get checkEmail => 'Перевірте свою пошту';
 
   @override
+  String get resetPasswordInstructions =>
+      'Введіть новий пароль для вашого акаунту. Після збереження старий пароль більше не діятиме.';
+
+  @override
+  String get newPassword => 'Новий пароль';
+
+  @override
+  String get confirmPassword => 'Підтвердити пароль';
+
+  @override
+  String get errorPasswordsDoNotMatch => 'Паролі не співпадають';
+
+  @override
+  String get errorRecoverySessionExpired =>
+      'Посилання для відновлення пароля застаріло або вже використане. Запросіть нове.';
+
+  @override
+  String get passwordResetSuccessTitle => 'Пароль відновлено';
+
+  @override
+  String get passwordResetSuccessMessage =>
+      'Ваш пароль успішно оновлено. Тепер ви можете увійти з новим паролем.';
+
+  @override
+  String get continueToApp => 'Перейти до додатку';
+
+  @override
+  String get passwordResetEmailSentTitle => 'Перевірте пошту';
+
+  @override
+  String passwordResetEmailSentMessage(String email) {
+    return 'Ми надіслали інструкції для відновлення пароля на $email. Перейдіть за посиланням у листі, щоб встановити новий пароль.';
+  }
+
+  @override
+  String get backToLogin => 'Повернутися до входу';
+
+  @override
   String get back => 'Назад';
 
   @override
@@ -400,6 +438,16 @@ class AppLocalizationsUk extends AppLocalizations {
   String emailVerificationMessage(String email) {
     return 'Лист з посиланням для підтвердження було відправлено на $email. Будь ласка, перевірте пошту та натисніть на посилання для підтвердження.';
   }
+
+  @override
+  String get emailConfirmedTitle => 'Email підтверджено';
+
+  @override
+  String get emailConfirmedMessage =>
+      'Дякуємо! Вашу електронну адресу підтверджено. Тепер ви можете увійти в додаток.';
+
+  @override
+  String get emailConfirmedCta => 'Увійти';
 
   @override
   String get emailCannotBeEmpty => 'Введіть email';
@@ -830,4 +878,34 @@ class AppLocalizationsUk extends AppLocalizations {
 
   @override
   String get editMeetup => 'Редагувати сходини';
+
+  @override
+  String get meetupSelectedAttendees => 'Вибрані присутні';
+
+  @override
+  String get meetupAddAttendee => 'Додати присутнього';
+
+  @override
+  String get meetupNoAttendeesAvailable => 'Немає доступних учасників';
+
+  @override
+  String get meetupAttendeesEmpty => 'Присутніх не вибрано';
+
+  @override
+  String get meetupSelectFromFirstUnit => 'З гуртка';
+
+  @override
+  String get meetupSelectFromKurin => 'З куреня';
+
+  @override
+  String get addKurinMember => 'Додати учасника куреня';
+
+  @override
+  String get editKurinMember => 'Редагувати учасника куреня';
+
+  @override
+  String get kurinMembers => 'Учасники куреня';
+
+  @override
+  String get noKurin => 'Курінь ще не створено';
 }

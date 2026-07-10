@@ -34,6 +34,7 @@ class HCaptchaWebState extends State<HCaptchaWeb> {
 
   void clearToken() {}
   void reset() {}
+  void execute() {}
 
   @override
   Widget build(BuildContext context) {

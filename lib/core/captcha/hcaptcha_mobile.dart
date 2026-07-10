@@ -152,6 +152,19 @@ class HCaptchaMobileState extends State<HCaptchaMobile> {
     }
   }
 
+  /// On mobile, hCaptcha runs inside a WebView and tokens are reported
+  /// asynchronously via the `HCaptchaChannel` JS bridge. Calling
+  /// `hcaptcha.execute()` triggers an immediate token re-issue, so the
+  /// next submit gets a fresh value.
+  Future<void> execute() async {
+    try {
+      await _controller.runJavaScript('hcaptcha.execute()');
+    } catch (e) {
+      // ignore: avoid_print
+      print('hCaptcha mobile execute threw: $e');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return SizedBox(

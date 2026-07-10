@@ -37,6 +37,8 @@ flutter run -d "iPhone 16 Plus"
 - rm -rf ~/.ollama
 - rm -rf ~/Library/Application\ Support/Ollama/
 - sudo rm /usr/local/bin/ollama
+а потім
+- curl -fsSL https://ollama.com/install.sh | sh
 
 🧪 Як відкрити і протестувати локально
 

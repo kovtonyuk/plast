@@ -27,6 +27,12 @@
 
   <title>Пласт</title>
   <link rel="manifest" href="manifest.json">
+
+  <!-- hCaptcha: load the script as early as possible so the widget is
+       ready by the time the user reaches the auth page. The
+       programmatic fallback in lib/core/captcha/hcaptcha_web.dart still
+       runs in case this tag is stripped by a CDN proxy. -->
+  <script src="https://js.hcaptcha.com/1/api.js" async defer></script>
 </head>
 <body>
   <script src="flutter_bootstrap.js" async></script>

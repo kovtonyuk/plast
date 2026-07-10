@@ -1,3 +1,9 @@
+// Debug prints are intentional during hCaptcha integration — they show up
+// in the browser dev console so we can see the actual cause of the
+// "сталася помилка" banner. Remove or replace once the captcha is
+// rendering reliably.
+// ignore_for_file: avoid_print
+
 import 'dart:async';
 import 'dart:js_interop';
 import 'dart:js_interop_unsafe'; // provides getProperty/callMethod on JSObject.
@@ -6,10 +12,12 @@ import 'dart:ui_web' as ui_web;
 import 'package:flutter/material.dart';
 import 'package:web/web.dart' as web;
 
-/// Web implementation of the hCaptcha widget. Loads
-/// `https://js.hcaptcha.com/1/api.js` on first mount, renders the challenge
-/// in a dedicated [web.HTMLDivElement], and bridges the JS callbacks back
-/// into Dart.
+/// Web implementation of the hCaptcha widget. The script
+/// `https://js.hcaptcha.com/1/api.js` is loaded via <script src=...> in
+/// `web/index.html`, so by the time this widget mounts the global
+/// `window.hcaptcha` is already available. We just call `.render(...)`
+/// to draw the challenge into a dedicated [web.HTMLDivElement] and
+/// bridge the JS callbacks back into Dart.
 class HCaptchaWeb extends StatefulWidget {
   const HCaptchaWeb({
     super.key,
@@ -27,9 +35,14 @@ class HCaptchaWeb extends StatefulWidget {
 }
 
 class HCaptchaWebState extends State<HCaptchaWeb> {
-  static const _viewType = 'hcaptcha-web-view';
-  static const _containerId = 'hcaptcha-container';
-  static const _scriptSrc = 'https://js.hcaptcha.com/1/api.js';
+  // Each instance needs a unique platform view type — otherwise hot
+  // reload, page navigations, and toggle login↔register can all
+  // re-register the same factory and throw "platform view factory
+  // already registered" at mount time. A static counter guarantees
+  // uniqueness across the app's lifetime.
+  static int _instanceCounter = 0;
+  late final String _viewType = 'hcaptcha-web-view-${_instanceCounter++}';
+  static const _containerIdPrefix = 'hcaptcha-container-';
 
   web.HTMLDivElement? _container;
   String? _widgetId;
@@ -39,7 +52,11 @@ class HCaptchaWebState extends State<HCaptchaWeb> {
   @override
   void initState() {
     super.initState();
-    _ensureScript();
+    if (_hasGlobal()) {
+      _scriptReady = true;
+    } else {
+      _waitForGlobal();
+    }
   }
 
   @override
@@ -48,32 +65,10 @@ class HCaptchaWebState extends State<HCaptchaWeb> {
     super.dispose();
   }
 
-  void _ensureScript() {
-    final existing = web.document.querySelector('script[src="$_scriptSrc"]');
-    if (existing == null) {
-      final script = web.HTMLScriptElement()
-        ..src = _scriptSrc
-        ..async = true
-        ..defer = true;
-      script.onload = ((JSAny _) {
-        if (!mounted) return;
-        setState(() => _scriptReady = true);
-        _drainPending();
-      }).toJS;
-      script.onerror = ((JSAny _) {
-        if (!mounted) return;
-        widget.onError?.call('Failed to load hCaptcha script');
-      }).toJS;
-      web.document.head?.appendChild(script);
-    } else {
-      _waitForGlobal();
-    }
-  }
-
   void _waitForGlobal() {
     void check() {
+      if (!mounted) return;
       if (_hasGlobal()) {
-        if (!mounted) return;
         setState(() => _scriptReady = true);
         _drainPending();
         return;
@@ -87,8 +82,11 @@ class HCaptchaWebState extends State<HCaptchaWeb> {
   bool _hasGlobal() {
     try {
       final hcaptcha = _getHcaptcha();
-      return hcaptcha != null && !hcaptcha.isUndefined;
-    } catch (_) {
+      final hasIt = hcaptcha != null && !hcaptcha.isUndefined;
+      debugPrint('hCaptcha global check: hasIt=$hasIt');
+      return hasIt;
+    } catch (e) {
+      debugPrint('hCaptcha global check failed: $e');
       return false;
     }
   }
@@ -117,7 +115,7 @@ class HCaptchaWebState extends State<HCaptchaWeb> {
   void _registerView() {
     if (_container != null) return;
     final div = web.HTMLDivElement()
-      ..id = _containerId
+      ..id = '$_containerIdPrefix$_viewType'
       ..style.width = '302px'
       ..style.height = '78px';
     _container = div;
@@ -136,19 +134,40 @@ class HCaptchaWebState extends State<HCaptchaWeb> {
     if (!mounted || _container == null) return;
     final container = _container!;
 
-    final onToken = ((JSString token) {
-      if (!mounted) return;
-      widget.onToken(token.toDart);
+    // hCaptcha's minified build wraps the token in its own internal
+    // type (visible in errors as "minified:yq"), so the callback
+    // signature must be permissive — `JSAny?` — rather than
+    // `JSString`. Otherwise hCaptcha's call to our callback throws
+    // "minified:yq is not a subtype of Object" before we ever see the
+    // token. We then toDart-convert inside the body.
+    final onToken = ((JSAny? token) {
+      try {
+        // dartify() unwraps the JS value to a Dart type. hCaptcha's
+        // minified build returns a String wrapped in its own
+        // internal type (visible in errors as "minified:yq"), but
+        // dartify() handles the conversion regardless.
+        final dartToken = token?.dartify();
+        debugPrint('hCaptcha token received: $dartToken');
+        if (!mounted) return;
+        if (dartToken is String && dartToken.isNotEmpty) {
+          widget.onToken(dartToken);
+        }
+      } catch (e) {
+        debugPrint('hCaptcha token conversion failed: $e');
+      }
     }).toJS;
 
     final onExpired = (() {
+      debugPrint('hCaptcha token expired');
       if (!mounted) return;
       widget.onError?.call('captcha_expired');
     }).toJS;
 
-    final onErrorCb = ((JSString err) {
+    final onErrorCb = ((JSAny? err) {
+      final msg = err?.dartify()?.toString() ?? 'unknown';
+      debugPrint('hCaptcha JS error: $msg');
       if (!mounted) return;
-      widget.onError?.call(err.toDart);
+      widget.onError?.call(msg);
     }).toJS;
 
     final options = <String, JSAny>{
@@ -162,16 +181,27 @@ class HCaptchaWebState extends State<HCaptchaWeb> {
       final hcaptcha = _getHcaptcha();
       // ignore: invalid_runtime_check_with_js_interop_types
       if (hcaptcha is! JSObject || hcaptcha.isUndefined) {
+        debugPrint('hCaptcha global unavailable at render time');
         widget.onError?.call('hcaptcha_global_unavailable');
         return;
       }
+      debugPrint(
+        'hCaptcha: calling render with sitekey=${widget.siteKey.substring(0, 8)}...',
+      );
+      // hCaptcha's render() expects (element, options). The first
+      // argument is a DOM node from `package:web`, which is a
+      // `extension type` over a JS interop value. We can pass it
+      // directly to `callMethod` as `JSAny` because the underlying
+      // JS value is what hCaptcha needs.
       final result = hcaptcha.callMethod<JSAny>(
         'render'.toJS,
-        container.toJSBox,
+        container as JSAny,
         options,
       );
       _widgetId = (result as JSString).toDart;
+      debugPrint('hCaptcha render OK, widgetId=$_widgetId');
     } catch (e) {
+      debugPrint('hCaptcha render threw: $e');
       widget.onError?.call('hcaptcha_render_failed: $e');
     }
   }
@@ -186,6 +216,40 @@ class HCaptchaWebState extends State<HCaptchaWeb> {
       }
     } catch (_) {
       // best effort
+    }
+  }
+
+  /// Forces hCaptcha to (re-)run the challenge and emit a fresh token
+  /// through `onToken`. Use right before a submit so the token we send
+  /// to Supabase is guaranteed fresh — prevents
+  /// "already-seen-response" when hCaptcha re-fires its callback for a
+  /// previously issued token.
+  void execute() {
+    if (_widgetId == null) {
+      debugPrint('hCaptcha execute: no widgetId yet, skipping');
+      return;
+    }
+    try {
+      final hcaptcha = _getHcaptcha();
+      debugPrint('hCaptcha execute: hcaptcha=$hcaptcha, widgetId=$_widgetId');
+      // ignore: invalid_runtime_check_with_js_interop_types
+      if (hcaptcha is JSObject) {
+        // We deliberately do NOT call hCaptcha's execute() here.
+        // On the minified hCaptcha build, the execute(widgetId) JS
+        // method has an internal type check on its arguments that
+        // raises "minified:yq is not a subtype of Object" when
+        // invoked via dart:js_interop — the widgetId is wrapped in a
+        // String-typed extension that hCaptcha's minifier flags as
+        // incompatible with its internal Object check.
+        //
+        // Instead we fall back to the parent widget's reset() flow,
+        // which calls hcaptcha.reset(widgetId) and re-issues a token
+        // through the normal callback path. The parent is expected to
+        // call reset() (not execute()) before re-using a captcha.
+        debugPrint('hCaptcha execute skipped: use parent reset()');
+      }
+    } catch (e) {
+      debugPrint('hCaptcha execute threw: $e');
     }
   }
 

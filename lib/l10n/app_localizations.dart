@@ -562,6 +562,72 @@ abstract class AppLocalizations {
   /// **'Перевірте свою пошту'**
   String get checkEmail;
 
+  /// No description provided for @resetPasswordInstructions.
+  ///
+  /// In uk, this message translates to:
+  /// **'Введіть новий пароль для вашого акаунту. Після збереження старий пароль більше не діятиме.'**
+  String get resetPasswordInstructions;
+
+  /// No description provided for @newPassword.
+  ///
+  /// In uk, this message translates to:
+  /// **'Новий пароль'**
+  String get newPassword;
+
+  /// No description provided for @confirmPassword.
+  ///
+  /// In uk, this message translates to:
+  /// **'Підтвердити пароль'**
+  String get confirmPassword;
+
+  /// No description provided for @errorPasswordsDoNotMatch.
+  ///
+  /// In uk, this message translates to:
+  /// **'Паролі не співпадають'**
+  String get errorPasswordsDoNotMatch;
+
+  /// No description provided for @errorRecoverySessionExpired.
+  ///
+  /// In uk, this message translates to:
+  /// **'Посилання для відновлення пароля застаріло або вже використане. Запросіть нове.'**
+  String get errorRecoverySessionExpired;
+
+  /// No description provided for @passwordResetSuccessTitle.
+  ///
+  /// In uk, this message translates to:
+  /// **'Пароль відновлено'**
+  String get passwordResetSuccessTitle;
+
+  /// No description provided for @passwordResetSuccessMessage.
+  ///
+  /// In uk, this message translates to:
+  /// **'Ваш пароль успішно оновлено. Тепер ви можете увійти з новим паролем.'**
+  String get passwordResetSuccessMessage;
+
+  /// No description provided for @continueToApp.
+  ///
+  /// In uk, this message translates to:
+  /// **'Перейти до додатку'**
+  String get continueToApp;
+
+  /// No description provided for @passwordResetEmailSentTitle.
+  ///
+  /// In uk, this message translates to:
+  /// **'Перевірте пошту'**
+  String get passwordResetEmailSentTitle;
+
+  /// No description provided for @passwordResetEmailSentMessage.
+  ///
+  /// In uk, this message translates to:
+  /// **'Ми надіслали інструкції для відновлення пароля на {email}. Перейдіть за посиланням у листі, щоб встановити новий пароль.'**
+  String passwordResetEmailSentMessage(String email);
+
+  /// No description provided for @backToLogin.
+  ///
+  /// In uk, this message translates to:
+  /// **'Повернутися до входу'**
+  String get backToLogin;
+
   /// No description provided for @back.
   ///
   /// In uk, this message translates to:
@@ -873,6 +939,24 @@ abstract class AppLocalizations {
   /// In uk, this message translates to:
   /// **'Лист з посиланням для підтвердження було відправлено на {email}. Будь ласка, перевірте пошту та натисніть на посилання для підтвердження.'**
   String emailVerificationMessage(String email);
+
+  /// No description provided for @emailConfirmedTitle.
+  ///
+  /// In uk, this message translates to:
+  /// **'Email підтверджено'**
+  String get emailConfirmedTitle;
+
+  /// No description provided for @emailConfirmedMessage.
+  ///
+  /// In uk, this message translates to:
+  /// **'Дякуємо! Вашу електронну адресу підтверджено. Тепер ви можете увійти в додаток.'**
+  String get emailConfirmedMessage;
+
+  /// No description provided for @emailConfirmedCta.
+  ///
+  /// In uk, this message translates to:
+  /// **'Увійти'**
+  String get emailConfirmedCta;
 
   /// No description provided for @emailCannotBeEmpty.
   ///
@@ -1725,6 +1809,66 @@ abstract class AppLocalizations {
   /// In uk, this message translates to:
   /// **'Редагувати сходини'**
   String get editMeetup;
+
+  /// No description provided for @meetupSelectedAttendees.
+  ///
+  /// In uk, this message translates to:
+  /// **'Вибрані присутні'**
+  String get meetupSelectedAttendees;
+
+  /// No description provided for @meetupAddAttendee.
+  ///
+  /// In uk, this message translates to:
+  /// **'Додати присутнього'**
+  String get meetupAddAttendee;
+
+  /// No description provided for @meetupNoAttendeesAvailable.
+  ///
+  /// In uk, this message translates to:
+  /// **'Немає доступних учасників'**
+  String get meetupNoAttendeesAvailable;
+
+  /// No description provided for @meetupAttendeesEmpty.
+  ///
+  /// In uk, this message translates to:
+  /// **'Присутніх не вибрано'**
+  String get meetupAttendeesEmpty;
+
+  /// No description provided for @meetupSelectFromFirstUnit.
+  ///
+  /// In uk, this message translates to:
+  /// **'З гуртка'**
+  String get meetupSelectFromFirstUnit;
+
+  /// No description provided for @meetupSelectFromKurin.
+  ///
+  /// In uk, this message translates to:
+  /// **'З куреня'**
+  String get meetupSelectFromKurin;
+
+  /// No description provided for @addKurinMember.
+  ///
+  /// In uk, this message translates to:
+  /// **'Додати учасника куреня'**
+  String get addKurinMember;
+
+  /// No description provided for @editKurinMember.
+  ///
+  /// In uk, this message translates to:
+  /// **'Редагувати учасника куреня'**
+  String get editKurinMember;
+
+  /// No description provided for @kurinMembers.
+  ///
+  /// In uk, this message translates to:
+  /// **'Учасники куреня'**
+  String get kurinMembers;
+
+  /// No description provided for @noKurin.
+  ///
+  /// In uk, this message translates to:
+  /// **'Курінь ще не створено'**
+  String get noKurin;
 }
 
 class _AppLocalizationsDelegate
